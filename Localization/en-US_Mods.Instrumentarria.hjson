@@ -1,0 +1,21 @@
+Items: {
+	ActiveSoundShowcase: {
+		DisplayName: Active Sound Showcase
+		Tooltip: ""
+	}
+
+	SoundExperement: {
+		DisplayName: Sound Experement
+		Tooltip: ""
+	}
+
+	SoundExperement2: {
+		DisplayName: Sound Experement2
+		Tooltip: ""
+	}
+
+	SoundExperement3: {
+		DisplayName: Sound Experement3
+		Tooltip: ""
+	}
+}
