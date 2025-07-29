@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Instrumentarria.CustomSoundBankReader
 {
-    /// <summary>Represents a collection of Cues.</summary>
+    // Unused SB reader
     public class SoundBankReader
     {
         public string[] _waveBankNames;
@@ -17,7 +17,6 @@ namespace Instrumentarria.CustomSoundBankReader
 
         public bool IsDisposed { get; private set; }
 
-        /// <param name="audioEngine">AudioEngine that will be associated with this sound bank.</param>
         /// <param name="fileName">Path to a .xsb SoundBank file.</param>
         public SoundBankReader(string fileName)
         {

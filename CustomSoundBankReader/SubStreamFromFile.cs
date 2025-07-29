@@ -3,6 +3,7 @@ using System.IO;
 
 namespace Instrumentarria.CustomSoundBankReader;
 
+// Substream of some track in bigger (file) stream
 public class SubStreamFromFile : Stream
 {
     private FileStream _file;
@@ -23,7 +24,6 @@ public class SubStreamFromFile : Stream
     public override bool CanRead => true;
     public override bool CanSeek => true;
     public override bool CanWrite => false;
-
     public override long Length => _length;
     public override long Position
     {

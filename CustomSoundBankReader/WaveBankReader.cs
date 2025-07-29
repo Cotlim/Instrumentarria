@@ -2,11 +2,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.MemoryMappedFiles;
-using System.Threading.Channels;
 
 namespace Instrumentarria.CustomSoundBankReader
 {
+    // Some of black magic to read WB
     public class WaveBankReader : IDisposable
     {
         struct Segment
@@ -41,22 +40,21 @@ namespace Instrumentarria.CustomSoundBankReader
             public int BuildTime;                            // Build timestamp
         }
 
-
-
         public struct WaveEntryInfo
         {
-            public long Offset;           // Початкова позиція хвилі в .xwb
-            public long Length;           // Довжина хвилі (в байтах)
+            public long Offset;            // Start pos
+            public long Length;            // Lenght of track
 
-            public int SampleRate;        // WAVEFORMATEX.nSamplesPerSec
-            public AudioChannels Channels;// WAVEFORMATEX.nChannels
+            public int SampleRate;         // Samples per sec
+            public AudioChannels Channels; // Channels
 
-            public int BlockAlign;      // WAVEFORMATEX.nBlockAlign
-            public AudioFormat Format;    // Наш enum — PCM, ADPCM, тощо
+            public int BlockAlign;         // Alighment of bloks (in terraria it is 48)
+            public AudioFormat Format;     // Format (in terraria it is MSADPCM)
 
             public bool IsMSADPCM => Format == AudioFormat.MSADPCM;
 
         }
+
         public enum AudioFormat : ushort
         {
             PCM = 0x0001,
@@ -66,15 +64,10 @@ namespace Instrumentarria.CustomSoundBankReader
             Unknown = 0xFFFF
         }
 
-
         private readonly Dictionary<int, WaveEntryInfo> _entries = new();
         private readonly string _filePath;
         private string _bankName;
         private long _waveDataOffset;
-
-
-
-
 
         private const int Flag_EntryNames = 0x00010000; // Bank includes entry names
         private const int Flag_Compact = 0x00020000; // Bank uses compact format
@@ -85,6 +78,7 @@ namespace Instrumentarria.CustomSoundBankReader
         private const int MiniFormatTag_XMA = 0x1;
         private const int MiniFormatTag_ADPCM = 0x2;
         private const int MiniForamtTag_WMA = 0x3;
+
         public WaveBankReader(string filePath)
         {
             WaveBankHeader wavebankheader;
@@ -269,14 +263,7 @@ namespace Instrumentarria.CustomSoundBankReader
 
                 if (codec == MiniFormatTag_PCM)
                 {
-                    _entries[current_entry] = new WaveEntryInfo
-                    {
-                        Offset = wavebankentry.PlayRegion.Offset,
-                        Length = wavebankentry.PlayRegion.Length,
-                        SampleRate = rate,
-                        Channels = (AudioChannels)chans,
-                        Format = AudioFormat.PCM,
-                    };
+                    throw new NotImplementedException();
                 }
                 else if (codec == MiniForamtTag_WMA)
                 {
@@ -296,10 +283,8 @@ namespace Instrumentarria.CustomSoundBankReader
                 }
                 else
                 {
-                    Log.Info("Error");
                     throw new NotImplementedException();
                 }
-
             }
         }
 
@@ -311,10 +296,8 @@ namespace Instrumentarria.CustomSoundBankReader
             return new SubStreamFromFile(_filePath, info.Offset, info.Length);
         }
 
-
         public void Dispose()
         {
-            // Немає ресурсів, які треба вручну закривати.
         }
     }
 }

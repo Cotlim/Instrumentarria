@@ -47,7 +47,6 @@ namespace Instrumentarria.Common.Systems
 
         public override void OnModUnload()
         {
-
             if (Main.audioSystem is LegacyAudioSystem legacyAudioSystem)
             {
                 foreach (KeyValuePair<int, IAudioTrack> pair in oldCues)

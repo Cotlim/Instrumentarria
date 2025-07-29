@@ -79,24 +79,6 @@ namespace ExampleMod.Content.Items
 
                     Main.NewText("Name: " + cueName);
 
-
-                    try
-                    {
-                        SimpleSoundBank simpleSoundBank = new("Sound Bank.xsb");
-                        foreach (var i in simpleSoundBank.Cues)
-                        {
-                            if (i.Name == cueName)
-                            {
-                                Main.NewText($"{i.Name} Знайдено!");
-                                return true;
-                            }
-
-                        }
-                    }
-                    catch (Exception e) {
-                        Main.NewText($"Помилка: {e}");
-                    }
-
                 }
             }
             return true;

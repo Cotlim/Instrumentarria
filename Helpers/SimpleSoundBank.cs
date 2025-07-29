@@ -17,6 +17,7 @@ namespace Instrumentarria.Helpers
         // You can add more fields later if needed
     }
 
+    //TODO: turn this into SB reader for sorting new cues in right way
     public class SimpleSoundBank
     {
         public List<ParsedCue> Cues = new();

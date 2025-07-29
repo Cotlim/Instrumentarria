@@ -5,6 +5,7 @@ using Terraria.ModLoader.Engine;
 
 namespace Instrumentarria.CustomSoundBankReader
 {
+    // A stream that automatily decodes MSADPCM into normal format
     public class MSADPCMDecodedStream : Stream
     {
         private Stream _compressedStream;
