@@ -34,13 +34,42 @@ namespace Instrumentarria.CustomSoundBankReader
 
         public override int Read(byte[] buffer, int offset, int count)
         {
+            int read = CustomReadFunc(buffer, offset, count); // тут припустимо працює правильно
+            int readExtra = 0;
+
+            if (read < count)
+            {
+                Seek(0, SeekOrigin.Begin); // перемотка на початок
+
+                int remaining = count - read;
+
+                // Створюємо тимчасовий буфер
+                byte[] tempBuffer = new byte[remaining];
+                readExtra = CustomReadFunc(tempBuffer, 0, remaining);
+
+                // Копіюємо прочитане в основний буфер з урахуванням offset
+                Array.Copy(tempBuffer, 0, buffer, offset + read, readExtra);
+            }
+
+            if (read + readExtra != count)
+            {
+                Log.Error($"Oooops!!! read + readExtra = {read + readExtra}, count = {count}");
+                throw new Exception("Недостатньо байтів при зацикленому читанні.");
+            }
+
+            return count;
+        }
+
+
+        private int CustomReadFunc(byte[] buffer, int offset, int count)
+        {
             // Calculate a target box to unpack
             int startBlockIndex = (int)(_decodedPosition / DecompressedBlockSize);
             long targetCompressedPos = startBlockIndex * CompressedBlockSize;
 
             // Calculate an offset
             int offsetOfDecodedPosToEncodedBlocks = (int)(_decodedPosition - startBlockIndex * DecompressedBlockSize);
-            if(offsetOfDecodedPosToEncodedBlocks % 2 == 1)
+            if (offsetOfDecodedPosToEncodedBlocks % 2 == 1)
             {
                 offsetOfDecodedPosToEncodedBlocks++;
             }
@@ -61,23 +90,23 @@ namespace Instrumentarria.CustomSoundBankReader
                 int read = _compressedStream.Read(currentBlock, 0, CompressedBlockSize);
                 if (read < CompressedBlockSize)
                 {
-                    if (bytesDecodedTotal > 0)
+                    if (read == 0)
                     {
                         break; // виходимо з циклу і віддамо все, що є
                     }
 
-                    // Кінець потоку або неповний блок — сигналізуємо, що немає що декодувати
-                    return 0;
+                    Log.Error($"Block is NOT FULL!!! read = {read}");
+                    throw new Exception("Block is NOT FULL!!!");
                 }
                 var subslice = decodedBlock.Slice(bytesDecodedTotal, DecompressedBlockSize);
                 int decodedBytes = MSADPCMDecoder.DecodeBlock(currentBlock, subslice);
                 bytesDecodedTotal += decodedBytes;
             }
 
-            var slice = decodedBlock.Slice(offsetOfDecodedPosToEncodedBlocks, count);
+            var slice = decodedBlock.Slice(offsetOfDecodedPosToEncodedBlocks, Math.Min(bytesDecodedTotal - offsetOfDecodedPosToEncodedBlocks, count));
             slice.CopyTo(buffer);
-            _decodedPosition += count;
-            return count;
+            _decodedPosition += slice.Length;
+            return slice.Length;
         }
 
         public override void Flush() => throw new NotSupportedException();

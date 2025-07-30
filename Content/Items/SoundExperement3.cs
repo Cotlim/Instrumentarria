@@ -41,7 +41,15 @@ namespace ExampleMod.Content.Items
         public override bool? UseItem(Player player)
         {
             ModContent.GetInstance<ReplaceAllCuesSystem>().Toggle();
-            return true;
+            if (ModContent.GetInstance<ReplaceAllCuesSystem>().IsTurnedOn)
+            {
+                Main.NewText("New Cues Enabled!", Color.Yellow);
+            }
+            else
+            {
+                Main.NewText("Old Cues Enabled!", Color.Yellow);
+            }
+                return true;
         }
 
         private static float CalculateNormalizedDistance(Player player)
