@@ -15,6 +15,7 @@ namespace Instrumentarria.Common.Systems
     internal class ReplaceAllCuesSystem : ModSystem
     {
         public WaveBankReader waveBankReader;
+        public SoundBankReader soundBankReader;
 
         private Dictionary<int, IAudioTrack> oldCues;
         private Dictionary<int, IAudioTrack> newCues;
@@ -25,6 +26,7 @@ namespace Instrumentarria.Common.Systems
         {
             var contentManager = (TMLContentManager)Main.instance.Content;
             waveBankReader = new WaveBankReader(contentManager.GetPath("Wave Bank.xwb"));
+            soundBankReader = new SoundBankReader(contentManager.GetPath("Sound Bank.xsb"));
             oldCues = new Dictionary<int, IAudioTrack>();
             newCues = new Dictionary<int, IAudioTrack>();
             ushort waveIndex = 0;
@@ -34,7 +36,7 @@ namespace Instrumentarria.Common.Systems
                 {
                     if (legacyAudioSystem.AudioTracks[i] is CueAudioTrack cueAudioTrack)
                     {
-                        waveIndex = FAudio.FACTSoundBank_GetCueIndex(cueAudioTrack._soundBank.handle, cueAudioTrack._cueName);
+                        waveIndex = (ushort)soundBankReader._cues.GetValueOrDefault(cueAudioTrack._cueName).trackIndex;
                         var track = new WaveBankAudioTrack(waveBankReader, waveIndex, cueAudioTrack._cueName);
                         oldCues.Add(i, legacyAudioSystem.AudioTracks[i]);
                         newCues.Add(i, track);

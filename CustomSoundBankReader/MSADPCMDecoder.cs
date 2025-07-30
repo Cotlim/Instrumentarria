@@ -84,8 +84,19 @@ namespace Instrumentarria.CustomSoundBankReader
 
         private static void WriteShortLE(short value, Span<byte> buffer, ref int position)
         {
-            buffer[position++] = (byte)(value & 0xFF);
-            buffer[position++] = (byte)((value >> 8) & 0xFF);
+            
+            if (position >= buffer.Length)
+            {
+                return;
+            }
+            buffer[position] = (byte)(value & 0xFF);
+            position++;
+            if (position >= buffer.Length)
+            {
+                return;
+            }
+            buffer[position] = (byte)((value >> 8) & 0xFF);
+            position++;
         }
 
         internal static int DecodeBlock(Span<byte> rawBlock, Span<byte> decodedBlock)

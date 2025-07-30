@@ -9,7 +9,7 @@ namespace Instrumentarria.CustomSoundBankReader
     {
         private readonly WaveBankReader _reader;
         private readonly ushort _waveIndex;
-        private Stream _stream;
+        public Stream _stream;
         private BinaryReader _readerStream;
         public string _name;
 

@@ -68,7 +68,10 @@ namespace ExampleMod.Content.Items
                     {
                         float mouseYrelative = Main.MouseScreen.Y / Main.ScreenSize.Y * Main.GameViewMatrix.Zoom.X;
 
-                        waveBankAudioTrack._soundEffectInstance.Pitch = -mouseYrelative * 4 + 2;
+                        //waveBankAudioTrack._soundEffectInstance.Pitch = -mouseYrelative * 4 + 2;
+                        //Main.NewText($"{mouseYrelative}");
+                        targetPosition = (long)(mouseYrelative * waveBankAudioTrack._stream.Length);
+                        waveBankAudioTrack._stream.Seek(targetPosition, System.IO.SeekOrigin.Begin);
 
                         return false;
                     }

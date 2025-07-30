@@ -15,6 +15,8 @@ namespace Instrumentarria.CustomSoundBankReader
         public string[] _waveBankNames;
         public string[] _cueNames;
 
+        public Dictionary<string, CueReader> _cues = new Dictionary<string, CueReader>();
+
         public bool IsDisposed { get; private set; }
 
         /// <param name="fileName">Path to a .xsb SoundBank file.</param>
@@ -79,8 +81,135 @@ namespace Instrumentarria.CustomSoundBankReader
                     //parse cue name table
                     stream.Seek(cueNamesOffset, SeekOrigin.Begin);
                     _cueNames = System.Text.Encoding.UTF8.GetString(reader.ReadBytes((int)cueNameTableLen), 0, (int)cueNameTableLen).Split('\0');
+
+
+                    // Simple cues
+                    stream.Seek(simpleCuesOffset, SeekOrigin.Begin);
+                    for (int i = 0; i < numSimpleCues; i++)
+                    {
+                        //Log.Info($"Simple Cue: {_cueNames[i]}");
+                        reader.ReadByte(); // flags
+                        uint soundOffset = reader.ReadUInt32();
+
+                        var oldPosition = stream.Position;
+                        stream.Seek(soundOffset, SeekOrigin.Begin);
+                        XactSoundReader sound = new XactSoundReader(this, reader);
+                        stream.Seek(oldPosition, SeekOrigin.Begin);
+
+                        CueReader cue = new CueReader(_cueNames[i], sound);
+                        _cues.Add(cue.Name, cue);
+                    }
+
+                    // Complex cues
+
+                    
+
+                    stream.Seek(complexCuesOffset, SeekOrigin.Begin);
+                    for (int i = 0; i < numComplexCues; i++)
+                    {
+                        //Log.Info($"Complex Cue: {_cueNames[i]}");
+                        CueReader cue;
+
+                        byte flags = reader.ReadByte();
+                        if (((flags >> 2) & 1) != 0)
+                        {
+                            uint soundOffset = reader.ReadUInt32();
+                            reader.ReadUInt32(); //unkn
+
+                            var oldPosition = stream.Position;
+                            stream.Seek(soundOffset, SeekOrigin.Begin);
+                            XactSoundReader sound = new XactSoundReader(this, reader);
+                            stream.Seek(oldPosition, SeekOrigin.Begin);
+
+                            cue = new CueReader(_cueNames[numSimpleCues + i], sound);
+                        }
+                        else
+                        {
+                            uint variationTableOffset = reader.ReadUInt32();
+                            reader.ReadUInt32(); // transitionTableOffset
+
+                            //parse variation table
+                            long savepos = stream.Position;
+                            stream.Seek(variationTableOffset, SeekOrigin.Begin);
+
+                            uint numEntries = reader.ReadUInt16();
+                            uint variationflags = reader.ReadUInt16();
+                            reader.ReadByte();
+                            reader.ReadUInt16();
+                            reader.ReadByte();
+
+                            XactSoundReader[] cueSounds = new XactSoundReader[numEntries];
+                            float[] probs = new float[numEntries];
+
+                            uint tableType = (variationflags >> 3) & 0x7;
+                            for (int j = 0; j < numEntries; j++)
+                            {
+                                switch (tableType)
+                                {
+                                    case 0: //Wave
+                                        {
+                                            int trackIndex = reader.ReadUInt16();
+                                            int waveBankIndex = reader.ReadByte();
+                                            reader.ReadByte(); // weightMin
+                                            reader.ReadByte(); // weightMax
+
+                                            cueSounds[j] = new XactSoundReader(this, waveBankIndex, trackIndex);
+                                            break;
+                                        }
+                                    case 1:
+                                        {
+                                            uint soundOffset = reader.ReadUInt32();
+                                            reader.ReadByte(); // weightMin
+                                            reader.ReadByte(); // weightMax
+
+                                            var oldPosition = stream.Position;
+                                            stream.Seek(soundOffset, SeekOrigin.Begin);
+                                            cueSounds[j] = new XactSoundReader(this, reader);
+                                            stream.Seek(oldPosition, SeekOrigin.Begin);
+                                            break;
+                                        }
+                                    case 3:
+                                        {
+                                            uint soundOffset = reader.ReadUInt32();
+                                            var weightMin = reader.ReadSingle();
+                                            var weightMax = reader.ReadSingle();
+                                            var varFlags = reader.ReadUInt32();
+                                            var linger = (varFlags & 0x01) == 0x01;
+
+                                            var oldPosition = stream.Position;
+                                            stream.Seek(soundOffset, SeekOrigin.Begin);
+                                            cueSounds[j] = new XactSoundReader(this, reader);
+                                            stream.Seek(oldPosition, SeekOrigin.Begin);
+                                            break;
+                                        }
+                                    case 4: //CompactWave
+                                        {
+                                            int trackIndex = reader.ReadUInt16();
+                                            int waveBankIndex = reader.ReadByte();
+                                            cueSounds[j] = new XactSoundReader(this, waveBankIndex, trackIndex);
+                                            break;
+                                        }
+                                    default:
+                                        throw new NotSupportedException();
+                                }
+                            }
+
+                            stream.Seek(savepos, SeekOrigin.Begin);
+
+                            cue = new CueReader(_cueNames[numSimpleCues + i], cueSounds, probs);
+                        }
+
+                        // Instance limiting
+                        var instanceLimit = reader.ReadByte();
+                        var fadeInSec = reader.ReadUInt16() / 1000.0f;
+                        var fadeOutSec = reader.ReadUInt16() / 1000.0f;
+                        var instanceFlags = reader.ReadByte();
+
+                        _cues.Add(cue.Name, cue);
+                    }
                 }
             }
+
 
         }
     }

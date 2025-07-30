@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using Terraria.ModLoader.Engine;
+using Terraria.WorldBuilding;
 
 namespace Instrumentarria.CustomSoundBankReader
 {
@@ -39,8 +40,12 @@ namespace Instrumentarria.CustomSoundBankReader
 
             // Calculate an offset
             int offsetOfDecodedPosToEncodedBlocks = (int)(_decodedPosition - startBlockIndex * DecompressedBlockSize);
+            if(offsetOfDecodedPosToEncodedBlocks % 2 == 1)
+            {
+                offsetOfDecodedPosToEncodedBlocks++;
+            }
 
-            Span<byte> decodedBlock = buffer;
+            Span<byte> decodedBlock = new byte[count + DecompressedBlockSize];
             int bytesDecodedTotal = 0;
 
             byte[] currentBlock = new byte[CompressedBlockSize];
@@ -64,20 +69,15 @@ namespace Instrumentarria.CustomSoundBankReader
                     // Кінець потоку або неповний блок — сигналізуємо, що немає що декодувати
                     return 0;
                 }
-
-                int decodedBytes = MSADPCMDecoder.DecodeBlock(currentBlock, decodedBlock.Slice(bytesDecodedTotal));
+                var subslice = decodedBlock.Slice(bytesDecodedTotal, DecompressedBlockSize);
+                int decodedBytes = MSADPCMDecoder.DecodeBlock(currentBlock, subslice);
                 bytesDecodedTotal += decodedBytes;
             }
 
-            // Реальна кількість байтів, яку ми можемо повернути з урахуванням offset
-            int availableDecoded = bytesDecodedTotal - offsetOfDecodedPosToEncodedBlocks;
-            int actualToCopy = Math.Min(count, availableDecoded);
-
-            decodedBlock.Slice(offsetOfDecodedPosToEncodedBlocks, actualToCopy).CopyTo(buffer);
-
-            _decodedPosition += actualToCopy;
-            return actualToCopy;
-
+            var slice = decodedBlock.Slice(offsetOfDecodedPosToEncodedBlocks, count);
+            slice.CopyTo(buffer);
+            _decodedPosition += count;
+            return count;
         }
 
         public override void Flush() => throw new NotSupportedException();
