@@ -13,5 +13,13 @@
 		<PackageReference Include="Krafs.Publicizer" PrivateAssets="true" Version="2.2.1" />
 		<Publicize Include="FNA" IncludeVirtualMembers="true" IncludeCompilerGeneratedMembers="true" />
 		<Publicize Include="tModLoader" IncludeVirtualMembers="true" IncludeCompilerGeneratedMembers="false" />
+		<Publicize Include="ReLogic" IncludeVirtualMembers="true" IncludeCompilerGeneratedMembers="false" />
+	</ItemGroup>
+	
+	<!-- External DLL References for tModLoader -->
+	<ItemGroup>
+		<Reference Include="MeltySynth">
+			<HintPath>lib\MeltySynth.dll</HintPath>
+		</Reference>
 	</ItemGroup>
 </Project>

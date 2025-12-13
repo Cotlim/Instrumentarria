@@ -1,4 +1,4 @@
-п»їusing Instrumentarria.Common.Systems;
+using Instrumentarria.Common.Systems;
 using Instrumentarria.CustomSoundBankReader;
 using Microsoft.Xna.Framework.Audio;
 using System;
@@ -50,7 +50,7 @@ namespace ExampleMod.Content.Items
                 {
                     if (audioTrack is OGGAudioTrack oggTrack)
                     {
-                        // РџРµСЂРµРјРѕС‚Р°С‚Рё (SeekTo РІР¶Рµ Р°РІС‚РѕРјР°С‚РёС‡РЅРѕ РѕР±СЂРѕР±Р»СЏС” wrap-around)
+                        // Перемотати (SeekTo вже автоматично обробляє wrap-around)
                         float mouseYrelative = Main.MouseScreen.Y / Main.ScreenSize.Y * Main.GameViewMatrix.Zoom.X;
 
                         targetPosition = (long)(mouseYrelative * oggTrack._vorbisReader.TotalSamples);
@@ -68,10 +68,10 @@ namespace ExampleMod.Content.Items
                     {
                         float mouseYrelative = Main.MouseScreen.Y / Main.ScreenSize.Y * Main.GameViewMatrix.Zoom.X;
 
-                        //waveBankAudioTrack._soundEffectInstance.Pitch = -mouseYrelative * 4 + 2;
+                        waveBankAudioTrack._soundEffectInstance.Pitch = -mouseYrelative * 4 + 2;
                         //Main.NewText($"{mouseYrelative}");
                         targetPosition = (long)(mouseYrelative * waveBankAudioTrack._stream.Length);
-                        waveBankAudioTrack._stream.Seek(targetPosition, System.IO.SeekOrigin.Begin);
+                        //waveBankAudioTrack._stream.Seek(targetPosition, System.IO.SeekOrigin.Begin);
 
                         return false;
                     }

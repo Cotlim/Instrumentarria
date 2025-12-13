@@ -18,4 +18,14 @@ Items: {
 		DisplayName: Sound Experement3
 		Tooltip: ""
 	}
+
+	SingleNoteTester: {
+		DisplayName: Single Note Tester
+		Tooltip: ""
+	}
+
+	TestMidiInstrument: {
+		DisplayName: Test Midi Instrument
+		Tooltip: ""
+	}
 }

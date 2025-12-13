@@ -1,5 +1,8 @@
-﻿using Microsoft.Xna.Framework.Audio;
+﻿using Instrumentarria.Common.Systems.CustomAudioSystem;
+using Microsoft.Xna.Framework.Audio;
+using Microsoft.Xna.Framework.Graphics;
 using MonoMod.RuntimeDetour;
+using ReLogic.Content;
 using ReLogic.Utilities;
 using System;
 using System.Diagnostics;
@@ -16,14 +19,13 @@ namespace Instrumentarria.Common.Systems
         public bool playSound = false;
         public SlotId soundSlot;
         public Hook SoundEffectInstanceSetPitchHook;
-        public Hook SoundEffectInstanceUpdatePitchHook;
         public float pitch = 0.5f;
         public bool isHigherPichDetected = false;
 
         //SoundStyle soundStyleIgniteLoop = new SoundStyle("Instrumentarria/Assets/sin")
-        SoundStyle soundStyleIgniteLoop = new SoundStyle("Terraria/Sounds/Roar_0")
+        SoundStyle soundStyle = new SoundStyle("Terraria/Sounds/Roar_0")
         {
-            IsLooped = true,
+            IsLooped = false,
             SoundLimitBehavior = SoundLimitBehavior.ReplaceOldest
         };
 
@@ -35,37 +37,19 @@ namespace Instrumentarria.Common.Systems
             SoundEffectInstanceSetPitchHook = new(methodInfo, (Action<SoundEffectInstance, float> orig, SoundEffectInstance self, float value) =>
             {
                 //orig(self, value);
+                
                 self.INTERNAL_pitch = value;
                 if (self.handle != IntPtr.Zero)
                 {
                     self.UpdatePitch();
                 }
+                
             });
         }
 
         public override void OnModUnload()
         {
             SoundEffectInstanceSetPitchHook?.Dispose();
-        }
-
-        public override void PostUpdateEverything()
-        {
-            if (!playSound)
-            {
-                return;
-            }
-
-            if (!SoundEngine.TryGetActiveSound(soundSlot, out var _))
-            {
-                soundSlot = SoundEngine.PlaySound(soundStyleIgniteLoop, null, AdvancedSoundUpdateCallback);
-            }
-        }
-
-        private bool AdvancedSoundUpdateCallback(ActiveSound soundInstance)
-        {
-            soundInstance.Pitch = pitch;
-
-            return playSound;
         }
     }
 

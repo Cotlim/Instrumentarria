@@ -1,4 +1,4 @@
-﻿using Instrumentarria.Common.Systems;
+using Instrumentarria.Common.Systems;
 using Instrumentarria.CustomSoundBankReader;
 using Microsoft.Xna.Framework.Audio;
 using System;
@@ -50,14 +50,6 @@ namespace ExampleMod.Content.Items
                 Main.NewText("Old Cues Enabled!", Color.Yellow);
             }
                 return true;
-        }
-
-        private static float CalculateNormalizedDistance(Player player)
-        {
-            Vector2 playerToMouse = Main.MouseScreen + Main.screenPosition - player.Center;
-            float distanceToScreenEdge = Math.Min(Main.screenHeight / 2, Main.screenWidth / 2) / Main.GameViewMatrix.Zoom.X;
-            float normalizedDistance = playerToMouse.Length() / distanceToScreenEdge;
-            return normalizedDistance;
         }
     }
 }
