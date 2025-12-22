@@ -1,296 +1,140 @@
-using Instrumentarria.MidiReader;
-using Instrumentarria.Common.Systems.RhythmEngine.Streaming;
-using Microsoft.Xna.Framework.Audio;
+using MeltySynth;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using Terraria;
-using Terraria.ModLoader;
-using MidiFile = Instrumentarria.MidiReader.MidiFile;
 
 namespace Instrumentarria.Common.Systems.RhythmEngine
 {
     /// <summary>
-    /// High-level MIDI player ModSystem
-    /// Використовує MidiStreamingAudioTrack для відтворення
+    /// Manages MIDI playback and event processing.
     /// </summary>
-    public class MidiPlayer : ModSystem
+    internal class MidiPlayer
     {
-        private const int SAMPLE_RATE = 44100;
+        public const int DEFAULT_SAMPLE_RATE = 44100;
+        public const float VOLUME_BOOST = 8.0f;
         
-        private MidiFile _currentMidi;
-        private MidiStreamingAudioTrack _currentTrack;
-        private MidiFileEventProvider _currentEventProvider;
-        private SynthesizerManager _synthesizerManager;
+        private readonly MidiFile _midiFile;
+        private readonly Synthesizer _synthesizer;
         
-        // Поточний preset для окремих нот
-        private int _currentPresetBank = 0;
-        private int _currentPresetNumber = 0;
-        
-        // Кеш згенерованих нот (тільки для окремих нот, не для MIDI playback)
-        private readonly Dictionary<int, SoundEffect> _noteCache = new();
-        
-        // Кеш event providers для швидкого перезапуску
-        private readonly Dictionary<string, MidiFileEventProvider> _eventProviderCache = new();
+        private int _currentEventIndex;
 
+        public double TotalDuration => _midiFile.Length.TotalSeconds;
 
-        public bool IsPlaying => _currentTrack?.IsPlaying ?? false;
-        public double CurrentTime => _currentTrack?.CurrentTime ?? 0.0;
-        public double BPM => _currentEventProvider?.InitialBPM ?? 120.0;
-        public bool IsReady => _synthesizerManager?.IsLoaded ?? false;
-
-        public override void Load()
+        public MidiPlayer(MidiFile midiFile, SoundFont soundFont, int sampleRate = DEFAULT_SAMPLE_RATE)
         {
-            _synthesizerManager = SynthesizerManager.GetInstance(SAMPLE_RATE);
-            _synthesizerManager.LoadSoundFont(Mod);
+            if (midiFile == null)
+                throw new ArgumentNullException(nameof(midiFile));
+            if (soundFont == null)
+                throw new ArgumentNullException(nameof(soundFont));
+
+            _midiFile = midiFile;
+
+            var settings = new SynthesizerSettings(sampleRate);
+            _synthesizer = new Synthesizer(soundFont, settings);
+            
+            _currentEventIndex = 0;
         }
 
-        public override void Unload()
+        /// <summary>
+        /// Gets list of available instruments from a SoundFont.
+        /// </summary>
+        public static (int bank, int program, string name)[] GetInstruments(SoundFont soundFont)
         {
-            // НЕ викликаємо Stop() тут, бо це може бути з background thread
-            // Просто очищаємо ресурси
-            ClearCache();
-            _eventProviderCache.Clear();
-            _currentMidi = null;
-            
-            // Dispose track без Stop - це безпечно
-            if (_currentTrack != null)
+            if (soundFont == null)
+                return Array.Empty<(int, int, string)>();
+
+            var instruments = new System.Collections.Generic.List<(int, int, string)>();
+
+            foreach (var preset in soundFont.Presets)
             {
-                try
+                instruments.Add((preset.BankNumber, preset.PatchNumber, preset.Name));
+            }
+
+            return instruments.ToArray();
+        }
+
+        /// <summary>
+        /// Processes all MIDI events up to the specified time.
+        /// </summary>
+        /// <param name="currentTime">Current playback time in seconds</param>
+        /// <param name="silent">If true, only processes non-note events (used during seek to avoid sound artifacts)</param>
+        public void ProcessEventsUntil(double currentTime, bool silent = false)
+        {
+            var targetTime = TimeSpan.FromSeconds(currentTime);
+            
+            // Process all events up to current time
+            while (_currentEventIndex < _midiFile.Messages.Length && _midiFile.Times[_currentEventIndex] < targetTime)
+            {
+                var message = _midiFile.Messages[_currentEventIndex];
+                
+                // Only process Normal messages (skip TempoChange, LoopStart, LoopEnd, EndOfTrack)
+                if (message.Type == MidiFile.MessageType.Normal)
                 {
-                    _currentTrack.Dispose();
+                    SendMessageToSynthesizer(message, silent);
                 }
-                catch { }
-                _currentTrack = null;
+                _currentEventIndex++;
             }
-            
-            _currentEventProvider = null;
-            SynthesizerManager.Reset();
-        }
-
-
-        /// <summary>
-        /// Завантажує MIDI файл
-        /// </summary>
-        public void LoadMidi(MidiFile midiFile)
-        {
-            Stop();
-
-            _currentMidi = midiFile;
-
-            // Використовуємо кешований event provider якщо можливо
-            string cacheKey = midiFile.GetHashCode().ToString();
-            
-            if (!_eventProviderCache.TryGetValue(cacheKey, out _currentEventProvider))
-            {
-                _currentEventProvider = new MidiFileEventProvider(midiFile);
-                _eventProviderCache[cacheKey] = _currentEventProvider;
-            }
-            else
-            {
-                _currentEventProvider.Reset();
-            }
-
-            // Створити новий track
-            _currentTrack?.Dispose();
-            _currentTrack = new MidiStreamingAudioTrack(_currentEventProvider, _synthesizerManager);
-
-            Mod.Logger.Info($"Loaded MIDI file, duration: {_currentEventProvider.TotalDuration:F2}s, BPM: {_currentEventProvider.InitialBPM:F1}");
         }
 
         /// <summary>
-        /// Починає відтворення MIDI
+        /// Sends a MIDI message to the synthesizer.
         /// </summary>
-        public void Play()
+        /// <param name="silent">If true, skips NoteOn/NoteOff events to avoid sound artifacts during seek</param>
+        private void SendMessageToSynthesizer(MidiFile.Message message, bool silent = false)
         {
-            if (_currentMidi == null)
+            switch ((MidiCommand)message.Command)
             {
-                Mod.Logger.Warn("No MIDI loaded");
-                return;
-            }
-
-            if (_currentTrack == null)
-            {
-                Mod.Logger.Error("Track not ready!");
-                return;
-            }
-
-            _currentTrack.Play();
-            Mod.Logger.Info("Streaming MIDI playback started");
-        }
-
-        /// <summary>
-        /// Зупиняє відтворення
-        /// </summary>
-        public void Stop()
-        {
-            _currentTrack?.Stop(Microsoft.Xna.Framework.Audio.AudioStopOptions.Immediate);
-        }
-
-        /// <summary>
-        /// Пауза
-        /// </summary>
-        public void Pause()
-        {
-            _currentTrack?.Pause();
-        }
-
-        /// <summary>
-        /// Відновити після паузи
-        /// </summary>
-        public void Resume()
-        {
-            _currentTrack?.Resume();
-        }
-
-        // ============================================
-        // Методи для роботи з окремими нотами
-        // ============================================
-
-        /// <summary>
-        /// Відтворює окрему ноту з автоматичною SF2 обробкою
-        /// </summary>
-        public void PlayNote(byte midiNote, byte velocity, float volume = 1.0f, float durationSeconds = 2.0f)
-        {
-            if (!_synthesizerManager.IsLoaded)
-            {
-                Mod.Logger.Debug("Synthesizer not ready");
-                return;
-            }
-
-            try
-            {
-                var sound = GenerateSingleNote(midiNote, velocity, durationSeconds);
+                case MidiCommand.NoteOff:
+                case MidiCommand.NoteOn:
+                    // Skip note events during silent processing (seek)
+                    if (!silent)
+                    {
+                        _synthesizer.ProcessMidiMessage(message.Channel, message.Command, message.Data1, message.Data2);
+                    }
+                    break;
                 
-                if (sound != null)
-                {
-                    var instance = sound.CreateInstance();
-                    instance.Volume = volume;
-                    instance.Play();
-                }
-            }
-            catch (Exception ex)
-            {
-                Mod.Logger.Error($"Error playing note: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Генерує SoundEffect для окремої ноти
-        /// </summary>
-        private SoundEffect GenerateSingleNote(byte midiNote, byte velocity, float durationSeconds)
-        {
-            int cacheKey = (midiNote << 16) | (velocity << 8) | (int)(durationSeconds * 10);
-            
-            if (_noteCache.TryGetValue(cacheKey, out var cached))
-            {
-                return cached;
-            }
-
-            try
-            {
-                var synthesizer = _synthesizerManager.CreateSynthesizer();
-                
-                int sampleCount = (int)(SAMPLE_RATE * durationSeconds);
-                float[] left = new float[sampleCount];
-                float[] right = new float[sampleCount];
-
-                synthesizer.ProcessMidiMessage(0, 0xC0, _currentPresetNumber, 0);
-                synthesizer.ProcessMidiMessage(0, 0x90, midiNote, velocity);
-                synthesizer.Render(left, right);
-                synthesizer.ProcessMidiMessage(0, 0x80, midiNote, 0);
-
-                byte[] pcm16 = ConvertToStereoPCM16(left, right);
-                var soundEffect = new SoundEffect(pcm16, SAMPLE_RATE, AudioChannels.Stereo);
-                
-                _noteCache[cacheKey] = soundEffect;
-                
-                return soundEffect;
-            }
-            catch (Exception ex)
-            {
-                Mod.Logger.Error($"Error generating note: {ex.Message}");
-                return null;
+                case MidiCommand.PolyphonicPressure:
+                case MidiCommand.ControlChange:
+                case MidiCommand.ChannelPressure:
+                case MidiCommand.PitchBend:
+                    _synthesizer.ProcessMidiMessage(message.Channel, message.Command, message.Data1, message.Data2);
+                    break;
+                    
+                case MidiCommand.ProgramChange:
+                    _synthesizer.ProcessMidiMessage(message.Channel, message.Command, message.Data1, 0);
+                    break;
             }
         }
 
         /// <summary>
-        /// Конвертує float буфери в stereo PCM16
+        /// Resets both the event processor and synthesizer state.
+        /// This stops all playing notes and resets the event index to the beginning.
         /// </summary>
-        private byte[] ConvertToStereoPCM16(float[] left, float[] right)
+        public void Reset()
         {
-            byte[] pcm16 = new byte[left.Length * 4];
-            
-            for (int i = 0; i < left.Length; i++)
-            {
-                float boostedLeft = left[i] * SynthesizerManager.VOLUME_BOOST;
-                float boostedRight = right[i] * SynthesizerManager.VOLUME_BOOST;
-                
-                short leftSample = (short)(Math.Clamp(boostedLeft, -1.0f, 1.0f) * short.MaxValue);
-                short rightSample = (short)(Math.Clamp(boostedRight, -1.0f, 1.0f) * short.MaxValue);
-                
-                pcm16[i * 4] = (byte)(leftSample & 0xFF);
-                pcm16[i * 4 + 1] = (byte)((leftSample >> 8) & 0xFF);
-                pcm16[i * 4 + 2] = (byte)(rightSample & 0xFF);
-                pcm16[i * 4 + 3] = (byte)((rightSample >> 8) & 0xFF);
-            }
-            
-            return pcm16;
+            _synthesizer.Reset();
+            _currentEventIndex = 0;
         }
-
+        
         /// <summary>
-        /// Встановлює інструмент (preset)
+        /// Renders audio from the synthesizer.
         /// </summary>
-        public void SetInstrument(int bank, int program)
+        /// <param name="leftBuffer">Left channel output buffer</param>
+        /// <param name="rightBuffer">Right channel output buffer</param>
+        public void RenderAudio(float[] leftBuffer, float[] rightBuffer)
         {
-            _currentPresetBank = bank;
-            _currentPresetNumber = program;
-            ClearCache();
-            
-            Mod.Logger.Info($"Switched to Bank={bank}, Program={program}");
+            _synthesizer.Render(leftBuffer, rightBuffer);
         }
-
-        /// <summary>
-        /// Отримати список доступних інструментів
-        /// </summary>
-        public (int bank, int program, string name)[] GetAvailableInstruments()
-        {
-            return _synthesizerManager?.GetAvailableInstruments() ?? Array.Empty<(int, int, string)>();
-        }
-
-        /// <summary>
-        /// Очищає кеш нот
-        /// </summary>
-        private void ClearCache()
-        {
-            foreach (var sound in _noteCache.Values)
-            {
-                sound?.Dispose();
-            }
-            _noteCache.Clear();
-        }
-
-        /// <summary>
-        /// Отримати інформацію
-        /// </summary>
-        public string GetInfo()
-        {
-            if (!_synthesizerManager.IsLoaded)
-                return "Synthesizer: Not initialized";
-
-            var instruments = _synthesizerManager.GetAvailableInstruments();
-            return $"StreamingMidiPlayer: Ready\n" +
-                   $"Presets: {instruments.Length}\n" +
-                   $"Current: Bank={_currentPresetBank}, Program={_currentPresetNumber}\n" +
-                   $"Sample Rate: {SAMPLE_RATE}Hz\n" +
-                   $"Cached Notes: {_noteCache.Count}\n" +
-                   $"IsPlaying: {IsPlaying}";
-        }
-
-        public override void PostUpdateEverything()
-        {
-            // Track автоматично оновлюється через базовий клас Update()
-            _currentTrack?.Update();
-        }
+    }
+    /// <summary>
+    /// MIDI command types (status byte upper nibble).
+    /// </summary>
+    internal enum MidiCommand : byte
+    {
+        NoteOff = 0x80,
+        NoteOn = 0x90,
+        PolyphonicPressure = 0xA0,
+        ControlChange = 0xB0,
+        ProgramChange = 0xC0,
+        ChannelPressure = 0xD0,
+        PitchBend = 0xE0
     }
 }

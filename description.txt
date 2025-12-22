@@ -1,1 +1,24 @@
-Modify this file with a description of your mod.
+Instrumentarria - Real-time MIDI Playback System
+
+A tModLoader mod implementing real-time MIDI playback with SoundFont synthesis.
+
+Features:
+• Zero-latency audio playback (~7-10ms)
+• Sample-accurate timing with no drift
+• Real-time MIDI to audio conversion using MeltySynth
+• Thread-safe streaming architecture
+• Individual note generation with caching
+• Support for SoundFont (.sf2) instruments
+• Event-driven playback termination
+
+Technical Highlights:
+• Built on FNA audio backend with DynamicSoundEffectInstance
+• Custom streaming audio track implementation
+• Pre-calculated MIDI event timeline for fast iteration
+• Singleton SoundFont manager for memory efficiency
+• Thread-safe synthesizer access
+
+Perfect for musical instruments, rhythm games, and dynamic audio systems in Terraria!
+
+Repository: https://github.com/Cotlim/Instrumentarria
+Requires: tModLoader 2025.10+ (.NET 8)

@@ -19,6 +19,7 @@ namespace Instrumentarria.Common.Systems
 
         private Dictionary<int, IAudioTrack> oldCues;
         private Dictionary<int, IAudioTrack> newCues;
+        private Dictionary<int, ushort> musicSlotToWaveIndex;
 
         public bool IsTurnedOn = true;
 
@@ -29,7 +30,9 @@ namespace Instrumentarria.Common.Systems
             soundBankReader = new SoundBankReader(contentManager.GetPath("Sound Bank.xsb"));
             oldCues = new Dictionary<int, IAudioTrack>();
             newCues = new Dictionary<int, IAudioTrack>();
+            musicSlotToWaveIndex = new Dictionary<int, ushort>();
             ushort waveIndex = 0;
+            
             if (Main.audioSystem is LegacyAudioSystem legacyAudioSystem)
             {
                 for (int i = 0; i < legacyAudioSystem.AudioTracks.Length; i++)
@@ -38,13 +41,18 @@ namespace Instrumentarria.Common.Systems
                     {
                         waveIndex = (ushort)soundBankReader._cues.GetValueOrDefault(cueAudioTrack._cueName).trackIndex;
                         var track = new WaveBankAudioTrack(waveBankReader, waveIndex, cueAudioTrack._cueName);
-                        oldCues.Add(i, legacyAudioSystem.AudioTracks[i]);
+                        oldCues.Add(i, cueAudioTrack);
                         newCues.Add(i, track);
+                        musicSlotToWaveIndex.Add(i, waveIndex);
                         cueAudioTrack.Stop(Microsoft.Xna.Framework.Audio.AudioStopOptions.Immediate);
                         legacyAudioSystem.AudioTracks[i] = track;
                     }
                 }
             }
+
+            // Initialize MusicTrackPositionSystem with the necessary data
+            var trackPositionSystem = ModContent.GetInstance<MusicTrackPositionSystem>();
+            trackPositionSystem.Initialize(waveBankReader, musicSlotToWaveIndex);
         }
 
         public override void OnModUnload()

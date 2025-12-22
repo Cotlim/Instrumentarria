@@ -32,6 +32,9 @@ namespace ExampleMod.Content.Items
 
         public override bool? UseItem(Player player)
         {
+            // NOTE: MidiFile from MeltySynth doesn't expose Tracks publicly
+            // Use MeltySynthMidiFileAdapter for event-based MIDI streaming instead
+            /*
             foreach (var midiTrack in MidiAssets.TestMidi.Value.Tracks)
             {
                 Log.Info($"[c/FFFF00:Track]: {midiTrack.Index}");
@@ -40,6 +43,7 @@ namespace ExampleMod.Content.Items
                     Log.Info($"{midiEvent}");
                 }
             }
+            */
 
             ModContent.GetInstance<AudioSystem>().playSound = !ModContent.GetInstance<AudioSystem>().playSound;
             return true;

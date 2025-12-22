@@ -1,1 +1,50 @@
-This description will show up on the steam page, check out https://steamcommunity.com/comment/Guide/formattinghelp.
+[h1]Instrumentarria - Real-time MIDI Playback System[/h1]
+
+A tModLoader mod implementing real-time MIDI playback with SoundFont synthesis powered by MeltySynth.
+
+[h2]? Features[/h2]
+[list]
+[*] [b]Zero-latency audio[/b] - Music starts playing in ~7-10ms (20x faster than traditional approaches)
+[*] [b]Sample-accurate timing[/b] - No drift or jitter in MIDI event processing
+[*] [b]Real-time synthesis[/b] - Convert MIDI to audio on-the-fly using SoundFont instruments
+[*] [b]Thread-safe architecture[/b] - Reliable playback even during mod loading/unloading
+[*] [b]Individual note generation[/b] - Play single notes with caching for performance
+[*] [b]SoundFont support[/b] - Use .sf2 instrument banks for high-quality audio
+[*] [b]Event-driven playback[/b] - Clean automatic termination when music finishes
+[/list]
+
+[h2]?? Technical Highlights[/h2]
+[list]
+[*] Built on FNA audio backend with DynamicSoundEffectInstance
+[*] Custom streaming audio track implementation
+[*] Pre-calculated MIDI event timeline for fast iteration
+[*] Singleton SoundFont manager for memory efficiency (10MB shared across tracks)
+[*] Incremental time advancement prevents event drift
+[/list]
+
+[h2]?? Use Cases[/h2]
+Perfect for modders building:
+[list]
+[*] Musical instruments in Terraria
+[*] Rhythm-based gameplay mechanics
+[*] Dynamic music systems
+[*] Sound effect generators
+[*] Interactive audio experiences
+[/list]
+
+[h2]?? Requirements[/h2]
+[list]
+[*] tModLoader 2025.10 or later
+[*] .NET 8
+[/list]
+
+[h2]?? Links[/h2]
+[list]
+[*] [url=https://github.com/Cotlim/Instrumentarria]GitHub Repository[/url]
+[*] [url=https://github.com/Cotlim/Instrumentarria/blob/main/TECHNICAL_DOCUMENTATION.md]Technical Documentation[/url]
+[/list]
+
+[h2]?? License[/h2]
+Check the GitHub repository for license information.
+
+[i]Developed by Cotlim[/i]

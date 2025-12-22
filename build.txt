@@ -1,9 +1,14 @@
 displayName = Instrumentarria
 author = Cotlim
 version = 0.1
+homepage = https://github.com/Cotlim/Instrumentarria
 
 # External DLL dependencies
 dllReferences = MeltySynth
 
 # Include SoundFont files (.sf2) in the mod
 includeSource = *.sf2
+
+# Build configuration
+hideCode = false
+hideResources = false

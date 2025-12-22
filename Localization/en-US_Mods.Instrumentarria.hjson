@@ -28,4 +28,19 @@ Items: {
 		DisplayName: Test Midi Instrument
 		Tooltip: ""
 	}
+
+	SyncedMidiInstrument: {
+		Tooltip: ""
+		DisplayName: Synced Midi Instrument
+	}
+
+	MultiTrackInstrument: {
+		Tooltip: ""
+		DisplayName: Multi Track Instrument
+	}
+
+	SimpleSyncedInstrument: {
+		DisplayName: Simple Synced Instrument
+		Tooltip: ""
+	}
 }

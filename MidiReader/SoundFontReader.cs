@@ -6,15 +6,14 @@ using System.IO;
 namespace Instrumentarria.MidiReader
 {
     /// <summary>
-    /// Asset reader for loading MIDI files using MeltySynth.MidiFile.
-    /// Replaces the custom MidiFileReader implementation.
+    /// Asset reader for SoundFont (.sf2) files using MeltySynth library.
     /// </summary>
-    internal class MidiFileReader : IAssetReader
+    internal class SoundFontReader : IAssetReader
     {
         public T FromStream<T>(Stream stream) where T : class
         {
-            if (typeof(T) != typeof(MidiFile))
-                throw AssetLoadException.FromInvalidReader<MidiFileReader, T>();
+            if (typeof(T) != typeof(SoundFont))
+                throw AssetLoadException.FromInvalidReader<SoundFontReader, T>();
 
             // MeltySynth requires seekable stream
             // If stream is not seekable, load into MemoryStream
@@ -23,11 +22,10 @@ namespace Instrumentarria.MidiReader
                 using var memoryStream = new MemoryStream();
                 stream.CopyTo(memoryStream);
                 memoryStream.Position = 0;
-                return new MidiFile(memoryStream) as T;
+                return new SoundFont(memoryStream) as T;
             }
 
-            return new MidiFile(stream) as T;
+            return new SoundFont(stream) as T;
         }
     }
-
 }
