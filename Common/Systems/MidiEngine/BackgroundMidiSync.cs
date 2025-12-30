@@ -4,10 +4,11 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using System.Collections.Generic;
 using Terraria;
+using Terraria.Audio;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace Instrumentarria.Common.Systems.RhythmEngine
+namespace Instrumentarria.Common.Systems.MidiEngine
 {
     /// <summary>
     /// System that synchronizes MIDI playback with vanilla background music tracks.
@@ -118,25 +119,38 @@ namespace Instrumentarria.Common.Systems.RhythmEngine
                 return;
             }
 
-            // Get track position system for continuous sync
-            var trackPositionSystem = ModContent.GetInstance<MusicTrackPositionSystem>();
-            double initialPosition = trackPositionSystem?.GetTrackPosition(musicSlot) ?? 0;
+            // Get the audio track to sync with
+            if (Main.audioSystem is not LegacyAudioSystem legacyAudioSystem)
+            {
+                Mod.Logger.Warn($"Cannot sync MIDI - audio system is not LegacyAudioSystem");
+                return;
+            }
 
-            Mod.Logger.Debug($"Creating MIDI track '{midiKey}' for music slot {musicSlot}, initial position: {initialPosition:F2}s");
+            if (musicSlot < 0 || musicSlot >= legacyAudioSystem.AudioTracks.Length)
+            {
+                Mod.Logger.Warn($"Invalid music slot {musicSlot}");
+                return;
+            }
+
+            var targetTrack = legacyAudioSystem.AudioTracks[musicSlot];
+            if (targetTrack == null)
+            {
+                Mod.Logger.Warn($"No track found at music slot {musicSlot}");
+                return;
+            }
+
+            Log.Debug($"Creating MIDI track '{midiKey}' for music slot {musicSlot}");
 
             // Create new track
-            _currentTrack = new MidiAudioTrack(midiFile, _soundFont, MidiPlayer.DEFAULT_SAMPLE_RATE);
+            _currentTrack = new MidiAudioTrack(midiFile, new(_soundFont, 0, 0, ""), MidiPlayer.DEFAULT_SAMPLE_RATE);
             
-            // Set external time provider to continuously sync with background music
-            _currentTrack.SetExternalTimeProvider(() => 
-            {
-                return trackPositionSystem?.GetTrackPosition(musicSlot) ?? 0.0;
-            });
+            // Set sync target to continuously sync with background music
+            _currentTrack.SetSyncTarget(targetTrack);
 
             // Start playback - it will automatically sync to current position
             _currentTrack.Play();
 
-            Mod.Logger.Debug($"Started synced MIDI '{midiKey}' at {initialPosition:F2}s (Music slot: {musicSlot})");
+            Log.Debug($"Started synced MIDI '{midiKey}' (Music slot: {musicSlot})");
         }
 
         /// <summary>

@@ -1,9 +1,11 @@
-using MeltySynth;
+﻿using MeltySynth;
 using Microsoft.Xna.Framework.Audio;
 using System;
+using Terraria;
 using Terraria.Audio;
+using Terraria.ModLoader;
 
-namespace Instrumentarria.Common.Systems.RhythmEngine
+namespace Instrumentarria.Common.Systems.MidiEngine
 {
     /// <summary>
     /// Real-time streaming MIDI audio track.
@@ -18,9 +20,12 @@ namespace Instrumentarria.Common.Systems.RhythmEngine
         private double _currentTime;
         private readonly double _bufferDurationSeconds;
 
-        // Playback control - allows external time control
-        private Func<double> _externalTimeProvider;
-        private bool UseExternalTime => _externalTimeProvider != null;
+        // Sub-buffer processing for accurate MIDI event timing
+        private int _subBufferDivisor = 16; // Default: process events every 256 samples (~5.8ms at 44100Hz)
+
+        // Playback control - synchronization with another audio track
+        private IAudioTrack _syncTarget;
+        private AudioTrackSynchronizer _synchronizer;
 
         // Audio rendering buffers
         private readonly float[] _leftBuffer;
@@ -32,15 +37,17 @@ namespace Instrumentarria.Common.Systems.RhythmEngine
         /// <param name="midiFile">The MIDI file to play</param>
         /// <param name="soundFont">The SoundFont to use for synthesis</param>
         /// <param name="sampleRate">Sample rate (default: 44100 Hz)</param>
-        public MidiAudioTrack(MidiFile midiFile, SoundFont soundFont, int sampleRate = MidiPlayer.DEFAULT_SAMPLE_RATE)
+        public MidiAudioTrack(MidiFile midiFile, SoundFontInstrument soundFontInstrument, int sampleRate = MidiPlayer.DEFAULT_SAMPLE_RATE)
         {
             if (midiFile == null)
                 throw new ArgumentNullException(nameof(midiFile));
-            if (soundFont == null)
-                throw new ArgumentNullException(nameof(soundFont));
+            if (soundFontInstrument == null)
+                throw new ArgumentNullException(nameof(soundFontInstrument));
+
+            _sampleRate = sampleRate;
 
             // Create MIDI event processor with synthesizer
-            _midiPlayer = new MidiPlayer(midiFile, soundFont, sampleRate);
+            _midiPlayer = new MidiPlayer(midiFile, soundFontInstrument, sampleRate);
 
             // Initialize buffers
             int samplesPerChannel = bufferLength / 4; // 4 bytes per stereo sample
@@ -60,96 +67,104 @@ namespace Instrumentarria.Common.Systems.RhythmEngine
             // Reset synthesizer and event processor
             _midiPlayer.Reset();
 
-            // If using external time provider, seek to initial position
-            if (UseExternalTime)
-            {
-                double initialTime = _externalTimeProvider();
-                initialTime = Math.Clamp(initialTime, 0, TotalDuration);
+            // Seek to sync target position if available
+            double initialTime = _synchronizer?.GetTargetPosition() ?? 0;
+            initialTime = Math.Clamp(initialTime, 0, TotalDuration);
 
-                // Always use SeekTo to properly initialize state in silent mode
-                if (initialTime > 0)
-                {
-                    SeekTo(initialTime);
-                }
-                else
-                {
-                    _currentTime = 0;
-                }
+            if (initialTime > 0)
+            {
+                SeekTo(initialTime);
             }
             else
             {
-                // Normal playback from start
                 _currentTime = 0;
             }
         }
 
         public override void ReadAheadPutAChunkIntoTheBuffer()
         {
-
-            // Update time based on mode
-            UpdatePlaybackTime();
-
-            // Process MIDI events up to current time
-            // Use silent mode if we just seeked to avoid sound artifacts
-            _midiPlayer.ProcessEventsUntil(_currentTime);
-
-            // Render audio from synthesizer
-            _midiPlayer.RenderAudio(_leftBuffer, _rightBuffer);
-
-            // Convert to PCM16 with volume boost
-            ConvertToPCM16WithBoost(_leftBuffer, _rightBuffer, _bufferToSubmit);
-
-            // Check if playback should stop
-            bool shouldStop = ShouldStopPlayback();
-
-            // Submit buffer only if not stopping and playing/paused
-            if (shouldStop || _soundEffectInstance.State != SoundState.Playing && _soundEffectInstance.State != SoundState.Paused)
+            if (_synchronizer == null || !_synchronizer.IsValid())
                 return;
 
-            _soundEffectInstance.SubmitBuffer(_bufferToSubmit);
+            int currentBufferCount = _soundEffectInstance.PendingBufferCount;
+            int targetBufferCount = _synchronizer.GetTargetBufferCount();
+            
+            var syncAction = _synchronizer.GetSyncAction(currentBufferCount);
+
+            // Skip if too many buffers
+            if (syncAction == BufferSyncAction.Skip)
+                return;
+
+            // Periodic re-synchronization to prevent drift
+            double syncTime = _synchronizer.GetSynchronizedTime(_currentTime, TotalDuration);
+            if (syncTime < _currentTime)
+            {
+                // Backwards - loop detected, need to seek
+                SeekTo(syncTime);
+            }
+            else if (syncTime > _currentTime)
+            {
+                // Forward - normal sync, just update time
+                _currentTime = syncTime;
+            }
+            // else: same time - no sync needed
+
+            // Fill remaining buffers with silence if needed
+            if (syncAction == BufferSyncAction.AddWithFill)
+            {
+                FillBuffersWithSilence(targetBufferCount - 1);
+            }
+
+            // Render and submit one audio buffer
+            RenderAndSubmitBuffer();
+
+            
+            
         }
 
         /// <summary>
-        /// Updates playback time based on internal timer or external provider.
+        /// Renders MIDI audio and submits it as a buffer.
         /// </summary>
-        private void UpdatePlaybackTime()
+        private void RenderAndSubmitBuffer()
         {
-            if (UseExternalTime)
-            {
-                // Use external time provider (allows for synced playback, loops, etc.)
-                double newTime = _externalTimeProvider();
-
-                newTime = Math.Clamp(newTime, 0, TotalDuration);
-
-                // Check if we need to seek backwards
-                // MidiEventProcessor tracks current event index, so going backwards requires reset
-                if (newTime < _currentTime)
-                {
-                    SeekTo(newTime);
-                }
-                else
-                {
-                    _currentTime = newTime;
-                }
-                return;
-            }
-
-            // Use internal timer (normal playback)
+            double startTime = _currentTime;
             _currentTime += _bufferDurationSeconds;
+            double endTime = _currentTime;
+
+            _midiPlayer.RenderAudioWithEvents(
+                _leftBuffer,
+                _rightBuffer,
+                startTime,
+                endTime,
+                _subBufferDivisor
+            );
+            
+            ConvertToPCM16WithBoost(_leftBuffer, _rightBuffer, _bufferToSubmit);
+            SubmitBufferIfPlaying();
         }
 
         /// <summary>
-        /// Determines if playback should stop based on event state and timing.
+        /// Fills remaining buffers with silence to match target count.
         /// </summary>
-        private bool ShouldStopPlayback()
+        private void FillBuffersWithSilence(int targetCount)
         {
-            // Allow time for note release/decay (1 second after last event)
-            if (_currentTime > TotalDuration + 1.0)
+            while (_soundEffectInstance.PendingBufferCount < targetCount)
             {
-                return true;
+                ResetBuffer();
+                SubmitBufferIfPlaying();
             }
+        }
 
-            return false;
+        /// <summary>
+        /// Submits the current buffer if the track is playing or paused.
+        /// </summary>
+        private void SubmitBufferIfPlaying()
+        {
+            if (_soundEffectInstance.State == SoundState.Playing || 
+                _soundEffectInstance.State == SoundState.Paused)
+            {
+                _soundEffectInstance.SubmitBuffer(_bufferToSubmit);
+            }
         }
 
         /// <summary>
@@ -219,7 +234,7 @@ namespace Instrumentarria.Common.Systems.RhythmEngine
         public void SeekTo(double timeInSeconds)
         {
 
-            if (timeInSeconds < 0.02)
+            if (timeInSeconds < 0.05)
             {
                 timeInSeconds = 0;
             }
@@ -239,22 +254,42 @@ namespace Instrumentarria.Common.Systems.RhythmEngine
         }
 
         /// <summary>
-        /// Sets an external time provider function that controls playback position.
-        /// Useful for synchronized playback, loops, or dynamic time control.
+        /// Sets the audio track to synchronize playback with.
+        /// Useful for synchronized playback with background music, loops, or dynamic time control.
         /// </summary>
-        /// <param name="timeProvider">Function that returns current playback time in seconds. Set to null to use internal timer.</param>
-        public void SetExternalTimeProvider(Func<double> timeProvider)
+        /// <param name="syncTarget">The audio track to synchronize with. Set to null to use internal timer.</param>
+        public void SetSyncTarget(IAudioTrack syncTarget)
         {
-            _externalTimeProvider = timeProvider;
+            _syncTarget = syncTarget;
+            _synchronizer = syncTarget != null ? new AudioTrackSynchronizer(syncTarget) : null;
         }
 
         /// <summary>
-        /// Disables external time provider and returns to internal timing.
+        /// Disables synchronization and returns to internal timing.
         /// </summary>
         public void UseInternalTiming()
         {
-            _externalTimeProvider = null;
+            _syncTarget = null;
+            _synchronizer = null;
         }
+
+        /// <summary>
+        /// Sets the sub-buffer size for MIDI event processing.
+        /// Smaller values provide better timing accuracy but increase CPU usage.
+        /// </summary>
+        /// <param name="size">Sub-buffer size in samples (recommended: 64-512). At 44100Hz: 256 samples = ~5.8ms precision</param>
+        public void SetSubBufferSize(int size)
+        {
+            if (size <= 0)
+                throw new ArgumentOutOfRangeException(nameof(size), "Sub-buffer size must be positive");
+
+            _subBufferDivisor = size;
+        }
+
+        /// <summary>
+        /// Gets the current sub-buffer size used for MIDI event processing.
+        /// </summary>
+        public int SubBufferSize => _subBufferDivisor;
     }
 }
 

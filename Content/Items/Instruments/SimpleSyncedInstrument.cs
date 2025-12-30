@@ -1,4 +1,4 @@
-using Instrumentarria.Common.Systems.RhythmEngine;
+using Instrumentarria.Common.Systems.MidiEngine;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;

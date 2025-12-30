@@ -43,4 +43,9 @@ Items: {
 		DisplayName: Simple Synced Instrument
 		Tooltip: ""
 	}
+
+	CustomCuesSwitcher: {
+		DisplayName: Custom Cues Switcher
+		Tooltip: ""
+	}
 }

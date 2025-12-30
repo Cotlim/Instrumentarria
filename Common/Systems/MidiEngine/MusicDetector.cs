@@ -2,7 +2,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace Instrumentarria.Common.Systems.RhythmEngine
+namespace Instrumentarria.Common.Systems.MidiEngine
 {
 	public class MusicDetector : ModSystem
 	{

@@ -19,6 +19,17 @@ namespace Instrumentarria.Helpers
             instance.Logger.Info($"[{className}] {message}");
         }
 
+        public static void Debug(string message, [CallerFilePath] string callerFilePath = "")
+        {
+            string className = Path.GetFileNameWithoutExtension(callerFilePath);
+            var instance = ModInstance;
+            if (instance == null || instance.Logger == null)
+                return;
+
+            // Prepend the class name to the log message.
+            instance.Logger.Debug($"[{className}] {message}");
+        }
+
         public static void Warn(string message)
         {
             var instance = ModInstance;
