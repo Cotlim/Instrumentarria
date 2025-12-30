@@ -117,9 +117,6 @@ namespace Instrumentarria.Common.Systems.MidiEngine
 
             // Render and submit one audio buffer
             RenderAndSubmitBuffer();
-
-            
-            
         }
 
         /// <summary>

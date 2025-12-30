@@ -66,7 +66,7 @@ namespace Instrumentarria.Common.Systems.MidiEngine
             // _musicToMidiMap[MusicID.Underground] = "CaveAmbient";
         }
 
-        public override void PostUpdateEverything()
+        public override void UpdateUI(GameTime gameTime)
         {
             if (!_isActive || _soundFont == null)
             {
@@ -98,12 +98,6 @@ namespace Instrumentarria.Common.Systems.MidiEngine
 
             // Update current track
             _currentTrack?.Update();
-
-            // Maintain volume
-            if (_currentTrack?.IsPlaying ?? false)
-            {
-                // Volume control can be added here if needed
-            }
         }
 
         /// <summary>
