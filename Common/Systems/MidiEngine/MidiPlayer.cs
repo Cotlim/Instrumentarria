@@ -6,13 +6,13 @@ namespace Instrumentarria.Common.Systems.MidiEngine
     /// <summary>
     /// Manages MIDI playback and event processing.
     /// </summary>
-    internal class MidiPlayer
+    internal class MidiPlayer : IDisposable
     {
         public const int DEFAULT_SAMPLE_RATE = 44100;
         public const float VOLUME_BOOST = 7.0f;
 
         private readonly MidiFile _midiFile;
-        private readonly Synthesizer _synthesizer;
+        private Synthesizer _synthesizer;
 
         private int _currentEventIndex;
         
@@ -142,6 +142,22 @@ namespace Instrumentarria.Common.Systems.MidiEngine
         }
 
         /// <summary>
+        /// Stops all currently playing notes by sending NoteOff for all channels and notes.
+        /// This is a graceful way to stop audio that allows reverb/release to finish naturally.
+        /// </summary>
+        public void StopAllNotes()
+        {
+            // Send NoteOff for all possible notes (0-127) on all channels (0-15)
+            for (int channel = 0; channel < 16; channel++)
+            {
+                for (int note = 0; note < 128; note++)
+                {
+                    _synthesizer.ProcessMidiMessage(channel, (int)MidiCommand.NoteOff, note, 0);
+                }
+            }
+        }
+
+        /// <summary>
         /// Sets the instrument for a specific MIDI channel.
         /// </summary>
         /// <param name="channel">MIDI channel (0-15)</param>
@@ -256,6 +272,11 @@ namespace Instrumentarria.Common.Systems.MidiEngine
         public void RenderAudio(float[] leftBuffer, float[] rightBuffer)
         {
             _synthesizer.Render(leftBuffer, rightBuffer);
+        }
+
+        public void Dispose()
+        {
+            _synthesizer = null;
         }
     }
     /// <summary>

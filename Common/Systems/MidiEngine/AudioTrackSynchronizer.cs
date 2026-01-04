@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework.Audio;
 using System;
+using Terraria;
 using Terraria.Audio;
 using Terraria.ModLoader;
 
@@ -12,6 +13,7 @@ namespace Instrumentarria.Common.Systems.MidiEngine
     internal class AudioTrackSynchronizer
     {
         private readonly IAudioTrack _syncTarget;
+        private readonly int _syncID;
         private readonly MusicTrackPositionSystem _positionSystem;
         
         // Periodic re-synchronization
@@ -21,10 +23,27 @@ namespace Instrumentarria.Common.Systems.MidiEngine
         // Tolerance for backwards seeking
         private const double SEEK_BACKWARDS_TOLERANCE = 0.05; // 50ms
 
-        public AudioTrackSynchronizer(IAudioTrack syncTarget)
+        public AudioTrackSynchronizer(int syncID)
         {
-            _syncTarget = syncTarget;
+            _syncID = syncID;
+            _syncTarget = GetTrackFromID(_syncID);
             _positionSystem = ModContent.GetInstance<MusicTrackPositionSystem>();
+        }
+
+        private IAudioTrack GetTrackFromID(int syncTarget)
+        {
+            if (Main.audioSystem is not LegacyAudioSystem legacyAudioSystem)
+            {
+                Log.Warn($"Cannot sync MIDI - audio system is not LegacyAudioSystem");
+                return default;
+            }
+
+            if (syncTarget < 0 || syncTarget >= legacyAudioSystem.AudioTracks.Length)
+            {
+                Log.Warn($"Cannot sync MIDI - invalid sync target ID: {syncTarget}");
+                return default;
+            }
+            return legacyAudioSystem.AudioTracks[syncTarget];
         }
 
         /// <summary>
@@ -53,7 +72,7 @@ namespace Instrumentarria.Common.Systems.MidiEngine
         /// </summary>
         public bool IsValid()
         {
-            return _syncTarget is ASoundEffectBasedAudioTrack;
+            return _syncID == Main.curMusic;
         }
 
         /// <summary>
