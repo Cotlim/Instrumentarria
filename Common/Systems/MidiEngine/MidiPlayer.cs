@@ -1,3 +1,4 @@
+using Instrumentarria.Common.Systems.InstrumentsSystem;
 using MeltySynth;
 using System;
 
@@ -15,12 +16,8 @@ namespace Instrumentarria.Common.Systems.MidiEngine
         private Synthesizer _synthesizer;
 
         private int _currentEventIndex;
-        
-        // Instrument override control
+
         private bool _ignoreProgramChanges = false;
-        
-        // Track the last processed time for accurate sub-buffer processing
-        private double _lastProcessedTime = 0.0;
 
         public double TotalDuration => _midiFile.Length.TotalSeconds;
 
@@ -138,7 +135,6 @@ namespace Instrumentarria.Common.Systems.MidiEngine
         {
             _synthesizer.Reset();
             _currentEventIndex = 0;
-            _lastProcessedTime = 0.0;
         }
 
         /// <summary>
@@ -259,9 +255,6 @@ namespace Instrumentarria.Common.Systems.MidiEngine
 
                 processedSamples += samplesToProcess;
             }
-            
-            // Update last processed time
-            _lastProcessedTime = endTime;
         }
 
         /// <summary>
@@ -293,18 +286,5 @@ namespace Instrumentarria.Common.Systems.MidiEngine
         PitchBend = 0xE0
     }
 
-    public class SoundFontInstrument
-    {
-        public int Bank { get; }
-        public int Program { get; }
-        public string Name { get; }
-        public SoundFont SoundFont { get; set; }
-        public SoundFontInstrument(SoundFont soundFont, int bank, int program, string name)
-        {
-            SoundFont = soundFont;
-            Bank = bank;
-            Program = program;
-            Name = name;
-        }
-    }
+    
 }

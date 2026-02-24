@@ -38,8 +38,8 @@ namespace ExampleMod.Content.Items
 
         public override bool? UseItem(Player player)
         {
-            ModContent.GetInstance<ReplaceAllCuesSystem>().Toggle();
-            if (ModContent.GetInstance<ReplaceAllCuesSystem>().IsTurnedOn)
+            ModContent.GetInstance<WaveBankAudioSystem>().Toggle();
+            if (ModContent.GetInstance<WaveBankAudioSystem>().IsTurnedOn)
             {
                 Main.NewText("New Cues Enabled!", Color.Yellow);
             }

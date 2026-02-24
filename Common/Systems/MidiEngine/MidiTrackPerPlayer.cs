@@ -11,7 +11,7 @@ using Terraria.Audio;
 
 namespace Instrumentarria.Common.Systems.MidiEngine
 {
-    public class MidiBGSync : IDisposable
+    public class MidiTrackPerPlayer : IDisposable
     {
         private static List<MidiAudioTrack> _fadingTracks = new();
 
@@ -19,7 +19,7 @@ namespace Instrumentarria.Common.Systems.MidiEngine
 
         private InstrumentarriaPlayer _player;
 
-        public MidiBGSync(InstrumentarriaPlayer player)
+        public MidiTrackPerPlayer(InstrumentarriaPlayer player)
         {
             _player = player;
             _midiAudioTrack = CreateMidiTrack();
@@ -57,11 +57,17 @@ namespace Instrumentarria.Common.Systems.MidiEngine
             }
             _midiAudioTrack.StopWithFadeOut();
             _fadingTracks.Add(_midiAudioTrack);
+            _midiAudioTrack = null;
         }
 
         public MidiAudioTrack CreateMidiTrack()
         {
-            var midiKey = MidiTracksController.MusicToMidiMap[Main.curMusic];
+            if (!MidiTracksController.MusicToMidiMap.TryGetValue(Main.curMusic, out var midiKey))
+            {
+                Log.Warn($"No MIDI mapping found for music slot {Main.curMusic}");
+                return default;
+            }
+
             var midiFile = MidiAssets.GetMidi(midiKey);
             if (midiFile == null)
             {
@@ -77,7 +83,7 @@ namespace Instrumentarria.Common.Systems.MidiEngine
 
             return new MidiAudioTrack(
                 midiFile,
-                _player.ActiveInstrument.SoundFontAsset,
+                _player.ActiveInstrument.SFInstrument,
                 Main.curMusic
             );
         }
@@ -100,6 +106,16 @@ namespace Instrumentarria.Common.Systems.MidiEngine
         {
             FadeCurrent();
             _midiAudioTrack = null;
+        }
+
+        public void Pause()
+        {
+            _midiAudioTrack?.Pause();
+        }
+
+        public void Resume()
+        {
+            _midiAudioTrack?.Resume();
         }
     }
 }

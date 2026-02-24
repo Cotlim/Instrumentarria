@@ -6,15 +6,14 @@ using Terraria.ModLoader;
 
 namespace Instrumentarria.Common.Systems.MidiEngine
 {
-    /// <summary>
-    /// Handles synchronization between MIDI audio tracks and target audio tracks.
-    /// Manages buffer count synchronization, position tracking, and periodic re-sync.
-    /// </summary>
-    internal class AudioTrackSynchronizer
-    {
-        private readonly IAudioTrack _syncTarget;
-        private readonly int _syncID;
-        private readonly MusicTrackPositionSystem _positionSystem;
+	/// <summary>
+	/// Synchronizes MIDI audio tracks with target audio tracks by managing buffer counts and playback positions.
+	/// </summary>
+	internal class AudioTrackSynchronizer
+	{
+		private readonly IAudioTrack _syncTarget;
+		private readonly int _syncID;
+		private readonly AudioTrackPositionTracker _positionTracker;
         
         // Periodic re-synchronization
         private int _buffersSinceLastSync = 0;
@@ -23,12 +22,12 @@ namespace Instrumentarria.Common.Systems.MidiEngine
         // Tolerance for backwards seeking
         private const double SEEK_BACKWARDS_TOLERANCE = 0.05; // 50ms
 
-        public AudioTrackSynchronizer(int syncID)
-        {
-            _syncID = syncID;
-            _syncTarget = GetTrackFromID(_syncID);
-            _positionSystem = ModContent.GetInstance<MusicTrackPositionSystem>();
-        }
+	public AudioTrackSynchronizer(int syncID)
+	{
+		_syncID = syncID;
+		_syncTarget = GetTrackFromID(_syncID);
+		_positionTracker = ModContent.GetInstance<AudioTrackPositionTracker>();
+	}
 
         private IAudioTrack GetTrackFromID(int syncTarget)
         {
@@ -46,13 +45,13 @@ namespace Instrumentarria.Common.Systems.MidiEngine
             return legacyAudioSystem.AudioTracks[syncTarget];
         }
 
-        /// <summary>
-        /// Gets the current position of the sync target track.
-        /// </summary>
-        public double GetTargetPosition()
-        {
-            return _positionSystem?.GetTrackPosition(_syncTarget) ?? 0;
-        }
+	/// <summary>
+	/// Gets the current position of the sync target track.
+	/// </summary>
+	public double GetTargetPosition()
+	{
+		return _positionTracker?.GetTrackPosition(_syncTarget) ?? 0;
+	}
 
         /// <summary>
         /// Gets the pending buffer count of the sync target.

@@ -1,9 +1,4 @@
 ﻿using Instrumentarria.Common.Systems.InstrumentsSystem;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Terraria.ModLoader;
 
 namespace Instrumentarria.Common.Players
@@ -11,6 +6,8 @@ namespace Instrumentarria.Common.Players
     public class InstrumentarriaPlayer : ModPlayer
     {
         public ITInstrument ActiveInstrument { get; private set; }
+
+        public bool IsActive => ActiveInstrument != null;
 
         public void ActivateInstrument(ITInstrument instrument)
         {
@@ -20,6 +17,16 @@ namespace Instrumentarria.Common.Players
         public void DeactivateInstrument()
         {
             ActiveInstrument = null;
+        }
+
+        public override void SendClientChanges(ModPlayer clientPlayer)
+        {
+            base.SendClientChanges(clientPlayer);
+        }
+
+        public override void CopyClientState(ModPlayer targetCopy)
+        {
+            base.CopyClientState(targetCopy);
         }
     }
 }

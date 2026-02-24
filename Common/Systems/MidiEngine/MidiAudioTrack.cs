@@ -1,4 +1,5 @@
-﻿using MeltySynth;
+﻿using Instrumentarria.Common.Systems.InstrumentsSystem;
+using MeltySynth;
 using Microsoft.Xna.Framework.Audio;
 using System;
 using Terraria;
@@ -288,6 +289,7 @@ namespace Instrumentarria.Common.Systems.MidiEngine
             }
             _isDisposed = true;
             _midiPlayer.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         /// <summary>
@@ -307,7 +309,7 @@ namespace Instrumentarria.Common.Systems.MidiEngine
         /// <param name="fadeOutDuration">Duration of fade out in seconds (default: 2 seconds)</param>
         public void StopWithFadeOut(float fadeOutDuration = 2f)
         {
-            // Stop all notes immediately (but gracefully with NoteOff)
+            // Stop all notes immediately
             _midiPlayer.StopAllNotes();
 
             // Start fade out
