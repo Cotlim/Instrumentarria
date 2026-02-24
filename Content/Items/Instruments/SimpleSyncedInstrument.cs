@@ -19,6 +19,8 @@ namespace Instrumentarria.Content.Items.Instruments
 
         public ITInstrument instrument;
 
+        public bool isHeld = false;
+
         public override void SetDefaults()
         {
             Item.width = 32;
@@ -45,20 +47,19 @@ namespace Instrumentarria.Content.Items.Instruments
             var instPlayer = player.GetModPlayer<InstrumentarriaPlayer>();
             if (!isHolding)
             {
-                if (midiTrackController.IsActive(instPlayer))
+                if (isHeld)
                 {
                     instPlayer.DeactivateInstrument();
-                    midiTrackController.RemoveActivePlayer(instPlayer);
+                    isHeld = false;
                     Main.NewText("MIDI Sync: Deactivated", Color.Gray);
                 }
             }
             else
             {
-                // Ensure active
-                if (!midiTrackController.IsActive(instPlayer))
+                if (!isHeld)
                 {
                     instPlayer.ActivateInstrument(instrument);
-                    midiTrackController.AddActivePlayer(instPlayer);
+                    isHeld = true;
                     Main.NewText("MIDI Sync: Activated", Color.Cyan);
                 }
             }

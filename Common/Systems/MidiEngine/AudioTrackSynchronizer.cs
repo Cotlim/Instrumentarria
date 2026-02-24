@@ -86,7 +86,7 @@ namespace Instrumentarria.Common.Systems.MidiEngine
 
             int bufferDifference = currentBufferCount - targetBufferCount;
 
-            // Allow tolerance of ±3 buffers
+            // Allow tolerance of +-3 buffers
             if (bufferDifference > 3)
                 return BufferSyncAction.Skip;
 

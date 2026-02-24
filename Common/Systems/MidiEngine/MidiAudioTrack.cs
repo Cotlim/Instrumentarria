@@ -93,7 +93,7 @@ namespace Instrumentarria.Common.Systems.MidiEngine
         /// <summary>
         /// Renders MIDI audio with fade out applied and submits it as a buffer.
         /// </summary>
-        private void RenderAndSubmitBufferWithVolume(float volume)
+        private void RenderAndSubmitBufferWithoutNewNotes()
         {
             double startTime = _currentTime;
             _currentTime += _bufferDurationSeconds;
@@ -103,16 +103,6 @@ namespace Instrumentarria.Common.Systems.MidiEngine
                 _leftBuffer,
                 _rightBuffer
                 );
-
-            if (volume != 1f)
-            {
-                // Apply fade out volume
-                for (int i = 0; i < _leftBuffer.Length; i++)
-                {
-                    _leftBuffer[i] *= volume;
-                    _rightBuffer[i] *= volume;
-                }
-            }
 
             ConvertToPCM16WithBoost(_leftBuffer, _rightBuffer, _bufferToSubmit);
             _soundEffectInstance.SubmitBuffer(_bufferToSubmit);
@@ -204,7 +194,7 @@ namespace Instrumentarria.Common.Systems.MidiEngine
 
         public override void ReadAheadPutAChunkIntoTheBuffer()
         {
-            if (_synchronizer == null || !_synchronizer.IsValid() || _isDisposed)
+            if (_synchronizer == null || _isDisposed)
                 return;
 
             if (_soundEffectInstance.State != SoundState.Playing &&
@@ -227,10 +217,11 @@ namespace Instrumentarria.Common.Systems.MidiEngine
                 }
 
                 // Render buffer with fade out applied
-                RenderAndSubmitBufferWithVolume(1f - fadeProgress);
+                _soundEffectInstance.Volume = (1f - fadeProgress) * Main.musicVolume; // Linear fade out
+                RenderAndSubmitBufferWithoutNewNotes();
                 return;
             }
-
+            _soundEffectInstance.Volume = Main.musicVolume;
             int currentBufferCount = _soundEffectInstance.PendingBufferCount;
             int targetBufferCount = _synchronizer.GetTargetBufferCount();
 
@@ -318,7 +309,7 @@ namespace Instrumentarria.Common.Systems.MidiEngine
             _fadeOutTimer = 0f;
         }
 
-        public bool isValid()
+        public bool IsValid()
         {
             return _synchronizer.IsValid();
         }

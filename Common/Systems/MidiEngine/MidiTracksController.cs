@@ -14,118 +14,99 @@ using Terraria.ModLoader;
 
 namespace Instrumentarria.Common.Systems.MidiEngine
 {
-	/// <summary>
-	/// Central controller for managing MIDI playback synchronized with background music.
-	/// Tracks active players, manages MIDI-to-music mappings, and coordinates track lifecycle.
-	/// </summary>
-	public class MidiTracksController : ModSystem
-	{
-		private Dictionary<InstrumentarriaPlayer, MidiTrackPerPlayer> _activePlayersToMidi = new();
+    /// <summary>
+    /// Central controller for managing MIDI playback synchronized with background music.
+    /// Tracks active players, manages MIDI-to-music mappings, and coordinates track lifecycle.
+    /// </summary>
+    public class MidiTracksController : ModSystem
+    {
+        private static readonly Dictionary<int, string> _musicToMidiMap = new();
 
-		private static readonly Dictionary<int, string> _musicToMidiMap = new();
+        private static List<MidiAudioTrack> _fadingTracks = new();
 
-		public static IReadOnlyDictionary<int, string> MusicToMidiMap => _musicToMidiMap;
+        public static IReadOnlyDictionary<int, string> MusicToMidiMap => _musicToMidiMap;
 
-		public override void Load()
-		{
-			On_LegacyAudioSystem.PauseAll += (orig, self) =>
+        public override void Load()
+        {
+            On_LegacyAudioSystem.PauseAll += (orig, self) =>
             {
                 orig(self);
                 Pause();
             };
 
-			On_LegacyAudioSystem.ResumeAll += (orig, self) =>
+            On_LegacyAudioSystem.ResumeAll += (orig, self) =>
             {
                 orig(self);
                 Resume();
             };
 
-			On_LegacyAudioSystem.Update += (orig, self) =>
-			{
-				orig(self);
-				Update();
-			};
+            On_LegacyAudioSystem.Update += (orig, self) =>
+            {
+                orig(self);
+                Update();
+            };
 
-			_musicToMidiMap[MusicID.OverworldDay] = "Midi_1";
-			// TODO: Add more mappings
-			// _musicToMidiMap[MusicID.Night] = "NightTheme";
-			// _musicToMidiMap[MusicID.Underground] = "CaveAmbient";
+            _musicToMidiMap[MusicID.OverworldDay] = "Midi_1";
+            // TODO: Add more mappings
+            // _musicToMidiMap[MusicID.Night] = "NightTheme";
+            // _musicToMidiMap[MusicID.Underground] = "CaveAmbient";
 
-		}
+        }
 
         private void Pause()
         {
-            foreach ((var player, var midiSynchronizer) in _activePlayersToMidi)
+            foreach (var player in Main.ActivePlayers)
             {
-                midiSynchronizer.Pause();
+                player.GetModPlayer<InstrumentarriaPlayer>().Pause();
             }
         }
 
         private void Resume()
         {
-            foreach ((var player, var midiSynchronizer) in _activePlayersToMidi)
+            foreach (var player in Main.ActivePlayers)
             {
-                midiSynchronizer.Resume();
+                player.GetModPlayer<InstrumentarriaPlayer>().Resume();
             }
         }
 
         public void Update()
-		{
-			//TODO check if players in range
-			foreach ((var itplayer, var midiSynchronizer) in _activePlayersToMidi)
-			{
-				if (!Main.instance.IsActive || !itplayer.Player.active || itplayer.Player.dead)
-				{
-					midiSynchronizer.Pause();
-					continue;
-				}
-				else
-				{
-					midiSynchronizer.Resume();
-				}
-				midiSynchronizer.Update();
-			}
-			MidiTrackPerPlayer.UpdateFadingTracks();
+        {
+            //TODO check if players in range
+            foreach (var player in Main.ActivePlayers)
+            {
+                var itplayer = player.GetModPlayer<InstrumentarriaPlayer>();
+                if (!Main.instance.IsActive || player.dead)
+                {
+                    itplayer.Pause();
+                    continue;
+                }
+                else
+                {
+                    itplayer.Resume();
+                }
+                itplayer.UpdateMidiTrack();
+            }
+            UpdateFadingTracks();
 
-		}
+        }
 
-		public void AddActivePlayer(InstrumentarriaPlayer player)
-		{
-			var instrumentInfo = player.ActiveInstrument;
-			if (instrumentInfo == null)
-			{
-				Log.Warn($"Player {player.Player.name} is not using an instrument");
-				return;
-			}
+        public static void UpdateFadingTracks()
+        {
+            for (int i = _fadingTracks.Count - 1; i >= 0; i--)
+            {
+                var track = _fadingTracks[i];
 
-			var midiSynchronizer = new MidiTrackPerPlayer(player);
-			_activePlayersToMidi.Add(player, midiSynchronizer);
-		}
+                track.Update();
+                if (track.IsDisposed)
+                {
+                    _fadingTracks.Remove(track);
+                }
+            }
+        }
 
-		public void AddMainPlayer()
-		{
-			var player = Main.LocalPlayer.GetModPlayer<InstrumentarriaPlayer>();
-			AddActivePlayer(player);
-		}
-
-		public void RemoveActivePlayer(InstrumentarriaPlayer player)
-		{
-			if (_activePlayersToMidi.TryGetValue(player, out var midiSynchronizer))
-			{
-				midiSynchronizer.Dispose();
-				_activePlayersToMidi.Remove(player);
-			}
-		}
-
-		public void RemoveMainPlayer()
-		{
-			var player = Main.LocalPlayer.GetModPlayer<InstrumentarriaPlayer>();
-			RemoveActivePlayer(player);
-		}
-
-		public bool IsActive(InstrumentarriaPlayer instPlayer)
-		{
-			return _activePlayersToMidi.ContainsKey(instPlayer);
-		}
-	}
+        public void AddFadingTrack(MidiAudioTrack track)
+        {
+            _fadingTracks.Add(track);
+        }
+    }
 }
