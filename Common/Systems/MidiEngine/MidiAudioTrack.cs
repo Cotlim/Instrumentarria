@@ -37,6 +37,7 @@ namespace Instrumentarria.Common.Systems.MidiEngine
         private float _fadeOutTimer = 0f;
         private bool _isDisposed = false;
         public bool IsDisposed => _isDisposed;
+        public float MusicVolume = 0f;
 
         /// <summary>
         /// Creates a new MIDI streaming audio track.
@@ -217,11 +218,11 @@ namespace Instrumentarria.Common.Systems.MidiEngine
                 }
 
                 // Render buffer with fade out applied
-                _soundEffectInstance.Volume = (1f - fadeProgress) * Main.musicVolume; // Linear fade out
+                _soundEffectInstance.Volume = (1f - fadeProgress) * MusicVolume; // Linear fade out
                 RenderAndSubmitBufferWithoutNewNotes();
                 return;
             }
-            _soundEffectInstance.Volume = Main.musicVolume;
+            _soundEffectInstance.Volume = MusicVolume;
             int currentBufferCount = _soundEffectInstance.PendingBufferCount;
             int targetBufferCount = _synchronizer.GetTargetBufferCount();
 

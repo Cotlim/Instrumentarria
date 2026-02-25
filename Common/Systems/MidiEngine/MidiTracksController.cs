@@ -26,6 +26,9 @@ namespace Instrumentarria.Common.Systems.MidiEngine
 
         public static IReadOnlyDictionary<int, string> MusicToMidiMap => _musicToMidiMap;
 
+        public static IEnumerable<IMidiPlayable> AllITInstruments => Main.ActivePlayers.AsEnumerable().Select(
+            p => p.GetModPlayer<InstrumentarriaPlayer>()).Cast<IMidiPlayable>();
+
         public override void Load()
         {
             On_LegacyAudioSystem.PauseAll += (orig, self) =>
@@ -55,9 +58,9 @@ namespace Instrumentarria.Common.Systems.MidiEngine
 
         private void Pause()
         {
-            foreach (var player in Main.ActivePlayers)
+            foreach (var player in AllITInstruments)
             {
-                player.GetModPlayer<InstrumentarriaPlayer>().Pause();
+                player.Pause();
             }
         }
 
@@ -71,20 +74,20 @@ namespace Instrumentarria.Common.Systems.MidiEngine
 
         public void Update()
         {
-            //TODO check if players in range
             foreach (var player in Main.ActivePlayers)
             {
                 var itplayer = player.GetModPlayer<InstrumentarriaPlayer>();
-                if (!Main.instance.IsActive || player.dead)
+                if (!Main.instance.IsActive)
                 {
                     itplayer.Pause();
                     continue;
                 }
                 else
                 {
-                    itplayer.Resume();
+                    if (itplayer.IsPaused)
+                        itplayer.Resume();
+                    itplayer.UpdateMidiTrack();
                 }
-                itplayer.UpdateMidiTrack();
             }
             UpdateFadingTracks();
 
@@ -104,9 +107,19 @@ namespace Instrumentarria.Common.Systems.MidiEngine
             }
         }
 
-        public void AddFadingTrack(MidiAudioTrack track)
+        public static void AddFadingTrack(MidiAudioTrack track)
         {
             _fadingTracks.Add(track);
+        }
+    }
+
+    public static class CustomExtensionForActiveEntityIterator
+    {
+        public static IEnumerable<T> AsEnumerable<T>(this ActiveEntityIterator<T> source) where T : Entity
+        {
+            // Convert span to array first to avoid ref struct boundary issues
+            T[] array = source.span.ToArray();
+            return array;
         }
     }
 }

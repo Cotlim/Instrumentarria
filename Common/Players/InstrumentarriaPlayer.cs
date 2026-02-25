@@ -7,14 +7,17 @@ using Terraria.ModLoader;
 
 namespace Instrumentarria.Common.Players
 {
-    public class InstrumentarriaPlayer : ModPlayer
+    public class InstrumentarriaPlayer : ModPlayer, IMidiPlayable
     {
+        private const float MAX_HEARING_DISTANCE = 800f;
+        private const float MIN_HEARING_DISTANCE = 200f;
         public ITInstrument ActiveInstrument { get; private set; }
 
         private MidiAudioTrack _midiAudioTrack;
 
         public bool IsActive => ActiveInstrument != null;
 
+        public bool IsPaused => _midiAudioTrack?.IsPaused ?? false;
         public void ActivateInstrument(ITInstrument instrument)
         {
             ActiveInstrument = instrument;
@@ -23,6 +26,11 @@ namespace Instrumentarria.Common.Players
         public void DeactivateInstrument()
         {
             ActiveInstrument = null;
+        }
+
+        public override void UpdateDead()
+        {
+            DeactivateInstrument();
         }
 
         public void UpdateMidiTrack()
@@ -36,21 +44,10 @@ namespace Instrumentarria.Common.Players
                 return;
             }
 
-            if(_midiAudioTrack == null)
+            if (_midiAudioTrack == null || !_midiAudioTrack.IsValid())
             {
-                _midiAudioTrack = CreateMidiTrack();
-                if (_midiAudioTrack == null)
-                {
-                    Log.Debug("Failed to create new MIDI track during BG sync update.");
-                    return;
-                }
-                _midiAudioTrack.Play();
-                return;
-            }
-
-            if (!_midiAudioTrack.IsValid())
-            {
-                FadeCurrent();
+                if (_midiAudioTrack != null)
+                    FadeCurrent();
 
                 _midiAudioTrack = CreateMidiTrack();
                 if (_midiAudioTrack == null)
@@ -61,6 +58,22 @@ namespace Instrumentarria.Common.Players
                 _midiAudioTrack.Play();
             }
 
+            float distanceToPlayer = Vector2.Distance(Main.LocalPlayer.Center, Player.Center);
+            float volumeScale;
+            if (distanceToPlayer < MIN_HEARING_DISTANCE)
+            {
+                volumeScale = 1f;
+            }
+            else if (distanceToPlayer < MAX_HEARING_DISTANCE)
+            {
+                volumeScale = 1f - (distanceToPlayer - MIN_HEARING_DISTANCE) / (MAX_HEARING_DISTANCE - MIN_HEARING_DISTANCE);
+            }
+            else
+            {
+                volumeScale = 0f;
+            }
+
+            _midiAudioTrack.MusicVolume = Main.musicVolume * volumeScale;
             _midiAudioTrack.Update();
         }
         private void FadeCurrent()
@@ -70,7 +83,7 @@ namespace Instrumentarria.Common.Players
                 return;
             }
             _midiAudioTrack.StopWithFadeOut();
-            ModContent.GetInstance<MidiTracksController>().AddFadingTrack(_midiAudioTrack);
+            MidiTracksController.AddFadingTrack(_midiAudioTrack);
             _midiAudioTrack = null;
         }
 
